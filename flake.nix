@@ -136,6 +136,7 @@
                 ocamlPackages.yojson
                 ocamlPackages.camlzip
                 ocamlPackages.zarith
+                ocamlPackages.xxhash
                 pkgs.git
 	              pkgs.libGLU
 	              pkgs.libGL
@@ -148,6 +149,7 @@
                 pkgs.py-spy
                 pkgs.capnproto
                 pkgs.graphviz
+                pkgs.xxHash
                 #            venv
               ];
 
