@@ -108,7 +108,40 @@
           workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
           venv = pythonSet.mkVirtualEnv "${venvName}" workspace.deps.default;
 
-          ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;         
+          # ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
+
+          ocamlPackages = pkgs.ocamlPackages;
+                    
+          capnp-rpc = ocamlPackages.buildDunePackage {
+            pname = "capnp-rpc";
+            version = "v2.1"; 
+            src = pkgs.fetchFromGitHub {
+              owner = "mirage";
+              repo = "capnp-rpc";
+              rev = "v2.1";
+              sha256 = "sha256-0Q/bGvRQ7pFD0X9I/0/SsKm5O+UCF1GLgCKVh9IyaFY";
+            };
+
+            buildInputs = [
+              ocamlPackages.logs
+              ocamlPackages.fmt
+              ocamlPackages.astring
+              ocamlPackages.uri
+              ocamlPackages.eio
+              ocamlPackages.stdint
+              ocamlPackages.capnp
+              # ocamlPackages.lwt
+              # ocamlPackages.mdx
+              # ocamlPackages.eio_main
+              # ocamlPackages.odoc
+            ];
+
+            nativeBuildInputs = [
+              ocamlPackages.capnp
+              pkgs.capnproto
+            ];
+            
+          };
         in
           {
 
@@ -120,8 +153,8 @@
               
               buildInputs = [
                 #pkgs.gmp
-                pkgs.coq_8_19
-                pkgs.coqPackages_8_19.coq-lsp
+                pkgs.coq_8_11
+                # pkgs.coqPackages_8_19.coq-lsp
                 #scope.${package}
                 ocamlPackages.base
                 ocamlPackages.ocaml
@@ -137,6 +170,7 @@
                 ocamlPackages.camlzip
                 ocamlPackages.zarith
                 ocamlPackages.xxhash
+                ocamlPackages.ocamlgraph
                 pkgs.git
 	              pkgs.libGLU
 	              pkgs.libGL
@@ -150,6 +184,7 @@
                 pkgs.capnproto
                 pkgs.graphviz
                 pkgs.xxHash
+                capnp-rpc
                 #            venv
               ];
 
@@ -174,3 +209,4 @@
             };
           });
 }
+

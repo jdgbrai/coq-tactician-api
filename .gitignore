@@ -236,3 +236,8 @@ geckodriver.log
 
 # emacs
 .emacs.desktop
+
+
+# direnv
+.direnv 
+.envrc
