@@ -2,7 +2,7 @@
 (using dune_site 0.1)
 (name coq-tactician-api)
 (using coq 0.3)
-(generate_opam_files true)
+; (generate_opam_files true)
 
 (source (github coq-tactician/coq-tactician-api))
 (homepage "https://coq-tactician.github.io")

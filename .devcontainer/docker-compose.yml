@@ -1,0 +1,19 @@
+name: devcontainer
+
+services:
+  dev-machine:
+    build:
+      context: .
+      args:
+        USER_ID: 1000
+        GROUP_ID: 1000
+        USERNAME: vscode
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/home/vscode/workspace
+    networks:
+      - internal
+    command: ["sleep", "infinity"]
+networks:
+  internal:
+    driver: bridge"]

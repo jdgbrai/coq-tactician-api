@@ -46,4 +46,5 @@
  ; It also works using this rule, but running opam during an installation can be risky due to sandboxing issues.
  (mode fallback)
  (deps graph_generator_learner.ml.in)
- (action (run opam config subst %{targets})))
+;  (action (run opam config subst %{targets}))) ; old
+ (action (run dune subst %{targets})))
