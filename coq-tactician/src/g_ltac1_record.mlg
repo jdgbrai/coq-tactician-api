@@ -1,0 +1,204 @@
+DECLARE PLUGIN "tactician_ltac1_record_plugin"
+
+{
+
+open Ltac_plugin
+open Ltacrecord
+open Tactic_annotate
+
+open Pcoq
+open Tacarg
+open Vernacextend
+open Pp
+
+let tactician_mode = Entry.create "vernac:tactician_ltac1_mode"
+
+let classic_proof_mode = Pvernac.register_proof_mode "Tactician Ltac1" tactician_mode
+
+let pr_tac_ast = function
+  | Then -> str "Then"
+  | Dispatch -> str "Dispatch"
+  | Extend -> str "Extend"
+  | Thens -> str "Thens"
+  | Thens3parts -> str "Thens3parts"
+  | First -> str "First"
+  | Complete -> str "Complete"
+  | Solve -> str "Solve"
+  | Or -> str "Or"
+  | Once -> str "Once"
+  | ExactlyOnce -> str "ExactlyOnce"
+  | IfThenCatch -> str "IfThenCatch"
+  | Orelse -> str "Orelse"
+  | Do -> str "Do"
+  | Timeout -> str "Timeout"
+  | Repeat -> str "Repeat"
+  | Progress -> str "Progress"
+  | Abstract -> str "Abstract"
+  | LetIn -> str "LetIn"
+  | Match -> str "Match"
+  | MatchGoal -> str "MatchGoal"
+  | Arg -> str "Arg"
+  | Select -> str "Select"
+  | ML -> str "ML"
+  | Alias -> str "Alias"
+  | Call -> str "Call"
+  | IntroPattern -> str "IntroPattern"
+  | Apply -> str "Apply"
+  | Elim -> str "Elim"
+  | Case -> str "Case"
+  | MutualFix -> str "MutualFix"
+  | MutualCofix -> str "MutualCofix"
+  | Assert -> str "Assert"
+  | Generalize -> str "Generalize"
+  | LetTac -> str "LetTac"
+  | InductionDestruct -> str "InductionDestruct"
+  | Reduce -> str "Reduce"
+  | Change -> str "Change"
+  | Rewrite -> str "Rewrite"
+  | RewriteMulti -> str "RewriteMulti"
+  | Inversion -> str "Inversion"
+
+let pr_decomposition = function
+  | Decompose -> str "Decompose"
+  | Keep -> str "Keep"
+  | Both -> str "Both"
+  | Discard -> str "Discard"
+
+open Attributes
+open Tacexpr
+open Libnames
+open Stdarg
+
+}
+
+TACTIC EXTEND subst_from
+| [ "subst" "from" "->" ne_var_list(l) ] -> { Ltacrecord.subst_from l true }
+| [ "subst" "from" "<-" ne_var_list(l) ] -> { Ltacrecord.subst_from l false }
+END
+
+{
+open G_ltac
+let pr_ltac_use_default b =
+  if (snd b) then (* Bug: a space is inserted before "..." *) Pp.str ".." else Pp.mt ()
+}
+
+GRAMMAR EXTEND Gram
+  GLOBAL: tactician_mode;
+
+  tactician_mode:
+    [ [ g = OPT toplevel_selector; tac = G_vernac.query_command -> { tac g }
+      | g = OPT toplevel_selector; "{" -> { Vernacexpr.VernacSubproof g } ] ]
+  ;
+  END
+
+(* TODO: A truly evil memoization trick is happening here *)
+VERNAC ARGUMENT EXTEND ltac_use_default_hack PRINTED BY { pr_ltac_use_default }
+| [ "." ] -> { (Random.int64 (Int64.max_int), false) }
+| [ "..." ] -> { (Random.int64 (Int64.max_int), true) }
+END
+
+VERNAC { tactician_mode } EXTEND VernacSolveTactician STATE proof
+| [ ltac_selector_opt(g) ltac_info_opt(n) tactic(t) ltac_use_default_hack(def) ] =>
+    { (* TODO: Enormously ugly hack *)
+    VtSideff ([], VtNow)
+    } -> {
+    let g = Option.default (Goal_select.get_default_goal_selector ()) g in
+    Ltacrecord.vernac_solve g n t (snd def) (fst def)
+  }
+| [ "par" ":" ltac_info_opt(n) tactic(t) ltac_use_default_hack(def) ] =>
+  { (* TODO: Enormously ugly hack *)
+    VtSideff ([], VtNow)
+  } -> {
+    Ltacrecord.vernac_solve Goal_select.SelectAll n t (snd def) (fst def)
+  }
+END
+
+VERNAC COMMAND EXTEND VernacDeclareTacticDefinition
+| #[ deprecation; locality; ] [ "Ltac" ne_ltac_tacdef_body_list_sep(l, "with") ] => {
+    VtSideff (List.map (function
+      | TacticDefinition (CAst.{v; _},_) -> v
+      | TacticRedefinition (qid,_) -> qualid_basename qid) l, VtLater)
+  } -> {
+         Tacentries.register_ltac (Locality.make_module_locality locality) ?deprecation l;
+         section_ltac_helper l
+  }
+END
+
+VERNAC COMMAND EXTEND VernacTacticNotation
+| #[ deprecation; locality; ]
+  [ "Tactic" "Notation" ltac_tactic_level_opt(n) ne_ltac_production_item_list(r) ":=" tactic(e) ] =>
+  { VtSideff ([], VtNow) } ->
+  {
+    let n = Option.default 0 n in
+    Tacentries.add_tactic_notation (Locality.make_module_locality locality) n ?deprecation r e;
+    section_notation_helper r e
+  }
+END
+
+VERNAC ARGUMENT EXTEND tac_ast
+PRINTED BY { pr_tac_ast }
+| [ "Then" ] -> { Then }
+| [ "Dispatch" ] -> { Dispatch }
+| [ "Extend" ] -> { Extend }
+| [ "Thens" ] -> { Thens }
+| [ "Thens3parts" ] -> { Thens3parts }
+| [ "First" ] -> { First }
+| [ "Complete" ] -> { Complete }
+| [ "Solve" ] -> { Or }
+| [ "Or" ] -> { Or }
+| [ "Once" ] -> { Once }
+| [ "ExactlyOnce" ] -> { ExactlyOnce }
+| [ "IfThenCatch" ] -> { IfThenCatch }
+| [ "Orelse" ] -> { Orelse }
+| [ "Do" ] -> { Do }
+| [ "Timeout" ] -> { Timeout }
+| [ "Repeat" ] -> { Repeat }
+| [ "Progress" ] -> { Progress }
+| [ "Abstract" ] -> { Abstract }
+| [ "LetIn" ] -> { LetIn }
+| [ "Match" ] -> { Match }
+| [ "MatchGoal" ] -> { MatchGoal }
+| [ "Arg" ] -> { Arg }
+| [ "Select" ] -> { Select }
+| [ "ML" ] -> { ML }
+| [ "Alias" ] -> { Alias }
+| [ "Call" ] -> { Call }
+| [ "IntroPattern" ] -> { IntroPattern }
+| [ "Apply" ] -> { Apply }
+| [ "Elim" ] -> { Elim }
+| [ "Case" ] -> { Case }
+| [ "MutualFix" ] -> { MutualFix }
+| [ "MutualCofix" ] -> { MutualCofix }
+| [ "Assert" ] -> { Assert }
+| [ "Generalize" ] -> { Generalize }
+| [ "LetTac" ] -> { LetTac }
+| [ "InductionDestruct" ] -> { InductionDestruct }
+| [ "Reduce" ] -> { Reduce }
+| [ "Change" ] -> { Change }
+| [ "Rewrite" ] -> { Rewrite }
+| [ "RewriteMulti" ] -> { RewriteMulti }
+| [ "Inversion" ] -> { Inversion }
+END
+
+VERNAC ARGUMENT EXTEND tac_decomposition
+PRINTED BY { pr_decomposition }
+| [ "Decompose" ] -> { Decompose }
+| [ "Keep" ] -> { Keep }
+| [ "Both" ] -> { Both }
+| [ "Discard" ] -> { Discard }
+END
+
+VERNAC COMMAND EXTEND TacticianDecompositionSetting CLASSIFIED AS SIDEFF
+| [ "Tactician" "Record" tac_ast(ta) tac_decomposition(td) ]
+  -> { modify_ast_setting ta td }
+END
+
+VERNAC COMMAND EXTEND TacticianAliasDecompositionSetting CLASSIFIED AS SIDEFF
+| [ "Tactician" "Alias" "Record" tactic(tac) tac_decomposition(td) ]
+  -> { modify_ast_alias_setting tac td }
+END
+
+VERNAC COMMAND EXTEND TacticianInternalTacticSetting CLASSIFIED AS SIDEFF
+| [ "Tactician" "Register" "Tactic" string(str) tactic(tac) ]
+  -> { modify_internal_tactics_setting str tac }
+END

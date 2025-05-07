@@ -1,0 +1,61 @@
+(rule
+ (targets tactician-patch tactician.ml)
+ ; When installed through opam, we perform substitutions through the 'substs' directive in the opam file.
+ ; It also works using this rule, but running opam during an installation can be risky due to sandboxing issues.
+ (mode fallback)
+ (deps tactician-patch.in tactician.ml.in)
+;  (action (run opam config subst %{targets}))) ; old
+(action (run dune subst %{targets})))
+
+ 
+
+(install
+ (files tactician-patch)
+ (section libexec)
+ (package coq-tactician)
+)
+(install
+ (files coqc.real coqtop.real coqide.real) ; mount point for the real coq
+ (section lib)
+ (package coq-tactician)
+)
+(install ; TODO: Old location of injection flags. To be removed.
+ (files injection-flags)
+ (section etc)
+ (package coq-tactician)
+)
+(install
+ (files
+   coq-hott.patch
+   coq-hott.8.10.patch
+   coq-hott.8.11.patch
+   coq-hott.8.12.patch
+   coq-hott.8.13.patch
+   coq-hott.8.14.patch
+   coq-hott.8.15.patch
+ )
+ (section share)
+ (package coq-tactician)
+)
+(install
+ (package coq-tactician)
+ (section share)
+ (files (injection-flags as plugins/coq-tactician/injection-flags)))
+
+(generate_sites_module
+ (module coq_shim)
+ (sites coq-tactician) (sourceroot))
+
+(executable
+ (name tactician)
+ (package coq-tactician)
+ (public_name tactician)
+ (flags :standard -warn-error -A)
+ (modules ("tactician") coq_shim)
+ (libraries
+   unix
+   opam-client
+   dune-site
+   bos
+ )
+)
